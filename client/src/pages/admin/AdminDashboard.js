@@ -32,9 +32,12 @@ function AdminDashboard() {
           <p>Manage your quizzes and questions</p>
         </div>
 
-        <div style={{ marginBottom: "30px" }}>
+        <div style={{ marginBottom: "30px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
           <Link to="/admin/create" className="btn btn-success">
             + Create New Quiz
+          </Link>
+          <Link to="/admin/results" className="btn btn-primary">
+            📊 View All Results
           </Link>
         </div>
 
@@ -65,7 +68,7 @@ function AdminDashboard() {
                 <tr>
                   <th>Title</th>
                   <th>Questions</th>
-                  <th>Created</th>
+                  <th>Created By</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -76,13 +79,21 @@ function AdminDashboard() {
                     <td>{quiz.question_count || 0}</td>
                     <td>{quiz.created_by_name || "You"}</td>
                     <td>
-                      <Link 
-                        to={`/admin/manage?quizId=${quiz.id}`} 
-                        className="btn btn-primary btn-small"
-                        style={{ marginRight: "10px" }}
-                      >
-                        Manage
-                      </Link>
+                      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                        <Link
+                          to={`/admin/manage?quizId=${quiz.id}`}
+                          className="btn btn-primary btn-small"
+                        >
+                          Manage
+                        </Link>
+                        <Link
+                          to="/admin/results"
+                          className="btn btn-small"
+                          style={{ background: "#6c757d", color: "#fff" }}
+                        >
+                          Results
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -19,24 +19,20 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/admin/results" element={<ViewResults />} />
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route
           path="/dashboard"
           element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
         />
-
         <Route
           path="/quiz/:id"
           element={<ProtectedRoute><QuizAttempt /></ProtectedRoute>}
         />
-
         <Route
           path="/result/:id"
           element={<ProtectedRoute><Result /></ProtectedRoute>}
         />
-
         <Route
           path="/admin"
           element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>}
@@ -48,6 +44,10 @@ function App() {
         <Route
           path="/admin/manage"
           element={<ProtectedRoute><ManageQuestion /></ProtectedRoute>}
+        />
+        <Route
+          path="/admin/results"
+          element={<ProtectedRoute><ViewResults /></ProtectedRoute>}
         />
       </Routes>
     </Router>

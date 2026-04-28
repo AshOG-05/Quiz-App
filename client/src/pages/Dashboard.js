@@ -7,7 +7,9 @@ import { useAuth } from '../context/AuthContext';
 
 const Dashboard = () => {
   const [quizzes, setQuizzes] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submissionsLoading, setSubmissionsLoading] = useState(true);
   const [error, setError] = useState('');
   const { user } = useAuth();
 
@@ -23,7 +25,20 @@ const Dashboard = () => {
         setLoading(false);
       }
     };
+
+    const fetchSubmissions = async () => {
+      try {
+        const res = await API.get('/quizzes/user/submissions');
+        setSubmissions(res.data);
+      } catch (err) {
+        console.error('Failed to load submission history:', err);
+      } finally {
+        setSubmissionsLoading(false);
+      }
+    };
+
     fetchQuizzes();
+    fetchSubmissions();
   }, []);
 
   return (
@@ -74,9 +89,69 @@ const Dashboard = () => {
             ))}
           </div>
         )}
+
+        {/* My Results Section */}
+        <div className="page-header" style={{ marginTop: '48px' }}>
+          <div>
+            <h1>My Results</h1>
+            <p className="subtitle">Your quiz submission history</p>
+          </div>
+        </div>
+
+        {submissionsLoading && (
+          <div className="loading-state">
+            <div className="spinner" />
+            <p>Loading your results...</p>
+          </div>
+        )}
+
+        {!submissionsLoading && submissions.length === 0 && (
+          <div className="empty-state">
+            <div className="empty-icon">📊</div>
+            <h3>No Results Yet</h3>
+            <p>Complete a quiz above to see your score here.</p>
+          </div>
+        )}
+
+        {!submissionsLoading && submissions.length > 0 && (
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Quiz</th>
+                  <th>Score</th>
+                  <th>Total</th>
+                  <th>Percentage</th>
+                  <th>Submitted</th>
+                </tr>
+              </thead>
+              <tbody>
+                {submissions.map((s, i) => {
+                  const pct = Math.round((s.score / s.total_questions) * 100);
+                  return (
+                    <tr key={i}>
+                      <td>{s.title}</td>
+                      <td>{s.score}</td>
+                      <td>{s.total_questions}</td>
+                      <td>
+                        <span style={{
+                          color: pct >= 60 ? 'var(--success)' : 'var(--danger)',
+                          fontWeight: 600
+                        }}>
+                          {pct}%
+                        </span>
+                      </td>
+                      <td>{new Date(s.submitted_at).toLocaleString()}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
-export default Dashboard;
+export default Dashboard;

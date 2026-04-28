@@ -7,14 +7,17 @@ const authMiddleware = require('../middleware/authMiddleware');
 // Public routes
 router.get('/', quizController.getAllQuizzes);
 
-// Protected routes
-router.get('/:id', authMiddleware, quizController.getQuizWithQuestions);
-router.post('/:id/submit', authMiddleware, quizController.submitQuiz);
-router.post('/', authMiddleware, quizController.createQuiz);
-router.post('/:id/questions', authMiddleware, quizController.addQuestion);
+// ⚠️ IMPORTANT: Named/specific routes MUST come before /:id wildcard
+// otherwise Express will match "results" and "user" as an :id param
+router.get('/results', authMiddleware, quizController.getAllResults);
 router.get('/user/submissions', authMiddleware, quizController.getUserSubmissions);
 
-// 🔥 FIXED: use controller reference correctly
-router.get('/results', authMiddleware, quizController.getAllResults);
+// Wildcard param routes — must be AFTER specific routes
+router.get('/:id', authMiddleware, quizController.getQuizWithQuestions);
+router.post('/:id/submit', authMiddleware, quizController.submitQuiz);
+router.post('/:id/questions', authMiddleware, quizController.addQuestion);
+
+// Admin: create quiz
+router.post('/', authMiddleware, quizController.createQuiz);
 
 module.exports = router;
