@@ -1,0 +1,172 @@
+// src/pages/QuizAttempt.js - MCQ quiz taking interface
+import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import API from '../api/api';
+import Navbar from '../components/Navbar';
+
+const QuizAttempt = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  const [quiz, setQuiz] = useState(null);
+  const [questions, setQuestions] = useState([]);
+  const [answers, setAnswers] = useState({}); // { questionId: 'A' | 'B' | 'C' | 'D' }
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchQuiz = async () => {
+      try {
+        const res = await API.get(`/quizzes/${id}`);
+        setQuiz(res.data.quiz);
+        setQuestions(res.data.questions);
+      } catch (err) {
+        if (err.response?.status === 409) {
+          setError('You have already submitted this quiz.');
+        } else {
+          setError('Failed to load quiz. Please try again.');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchQuiz();
+  }, [id]);
+
+  const handleAnswer = (questionId, option) => {
+    setAnswers((prev) => ({ ...prev, [questionId]: option }));
+  };
+
+  const handleSubmit = async () => {
+    const unanswered = questions.filter((q) => !answers[q.id]);
+    if (unanswered.length > 0) {
+      const confirmed = window.confirm(
+        `You have ${unanswered.length} unanswered question(s). Submit anyway?`
+      );
+      if (!confirmed) return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await API.post(`/quizzes/${id}/submit`, { answers });
+      navigate(`/result/${id}`, { state: res.data });
+    } catch (err) {
+      if (err.response?.status === 409) {
+        setError('You have already submitted this quiz.');
+      } else {
+        setError(err.response?.data?.message || 'Submission failed. Please try again.');
+      }
+      setSubmitting(false);
+    }
+  };
+
+  const current = questions[currentIndex];
+  const answeredCount = Object.keys(answers).length;
+  const progress = questions.length ? (answeredCount / questions.length) * 100 : 0;
+
+  if (loading) return (
+    <div className="page"><Navbar />
+      <div className="loading-state"><div className="spinner" /><p>Loading quiz...</p></div>
+    </div>
+  );
+
+  if (error) return (
+    <div className="page"><Navbar />
+      <div className="page-content"><div className="alert alert-error">{error}</div></div>
+    </div>
+  );
+
+  return (
+    <div className="page">
+      <Navbar />
+      <div className="page-content quiz-attempt-page">
+        {/* Quiz Header */}
+        <div className="quiz-attempt-header">
+          <div>
+            <h1>{quiz?.title}</h1>
+            <p>{answeredCount} of {questions.length} answered</p>
+          </div>
+          <div className="progress-ring">
+            <span>{Math.round(progress)}%</span>
+          </div>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="progress-bar-container">
+          <div className="progress-bar" style={{ width: `${progress}%` }} />
+        </div>
+
+        {/* Question Navigation Dots */}
+        <div className="question-dots">
+          {questions.map((q, i) => (
+            <button
+              key={q.id}
+              className={`dot ${i === currentIndex ? 'active' : ''} ${answers[q.id] ? 'answered' : ''}`}
+              onClick={() => setCurrentIndex(i)}
+              title={`Question ${i + 1}`}
+            >
+              {i + 1}
+            </button>
+          ))}
+        </div>
+
+        {/* Question Card */}
+        {current && (
+          <div className="question-card">
+            <div className="question-number">Question {currentIndex + 1} of {questions.length}</div>
+            <h2 className="question-text">{current.question_text}</h2>
+
+            <div className="options-grid">
+              {['A', 'B', 'C', 'D'].map((opt) => {
+                const optText = current[`option_${opt.toLowerCase()}`];
+                const isSelected = answers[current.id] === opt;
+                return (
+                  <button
+                    key={opt}
+                    className={`option-btn ${isSelected ? 'selected' : ''}`}
+                    onClick={() => handleAnswer(current.id, opt)}
+                  >
+                    <span className="option-label">{opt}</span>
+                    <span className="option-text">{optText}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Navigation */}
+        <div className="quiz-navigation">
+          <button
+            className="btn btn-outline"
+            onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
+            disabled={currentIndex === 0}
+          >
+            ← Previous
+          </button>
+
+          {currentIndex < questions.length - 1 ? (
+            <button
+              className="btn btn-primary"
+              onClick={() => setCurrentIndex((i) => i + 1)}
+            >
+              Next →
+            </button>
+          ) : (
+            <button
+              className="btn btn-success"
+              onClick={handleSubmit}
+              disabled={submitting}
+            >
+              {submitting ? <span className="spinner-sm" /> : '✓ Submit Quiz'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default QuizAttempt;
