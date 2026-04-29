@@ -79,8 +79,9 @@ const Dashboard = () => {
                 </div>
                 <h3>{quiz.title}</h3>
                 <p className="quiz-description">{quiz.description || 'No description provided.'}</p>
-                <div className="quiz-meta">
+                <div className="quiz-meta" style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span>👤 {quiz.created_by_name || 'Admin'}</span>
+                  {quiz.time_limit && <span>⏱ {quiz.time_limit} mins</span>}
                 </div>
                 <Link to={`/quiz/${quiz.id}`} className="btn btn-primary btn-full">
                   Start Quiz →
@@ -123,6 +124,7 @@ const Dashboard = () => {
                   <th>Total</th>
                   <th>Percentage</th>
                   <th>Submitted</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -142,6 +144,9 @@ const Dashboard = () => {
                         </span>
                       </td>
                       <td>{new Date(s.submitted_at).toLocaleString()}</td>
+                      <td>
+                        <Link to={`/submission/${s.id}`} className="btn btn-small btn-primary">Review</Link>
+                      </td>
                     </tr>
                   );
                 })}

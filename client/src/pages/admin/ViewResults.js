@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import API from "../../api/api";
 import Navbar from "../../components/Navbar";
 
@@ -61,6 +62,7 @@ function ViewResults() {
                   <th>Total</th>
                   <th>Percentage</th>
                   <th>Submitted At</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -84,6 +86,9 @@ function ViewResults() {
                         </span>
                       </td>
                       <td>{new Date(r.submitted_at).toLocaleString()}</td>
+                      <td>
+                        <Link to={`/submission/${r.submission_id}`} className="btn btn-small btn-primary">Review</Link>
+                      </td>
                     </tr>
                   );
                 })}

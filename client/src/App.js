@@ -6,6 +6,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import QuizAttempt from "./pages/QuizAttempt";
 import Result from "./pages/Result";
+import SubmissionDetails from "./pages/SubmissionDetails";
 
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import CreateQuiz from "./pages/admin/CreateQuiz";
@@ -32,6 +33,10 @@ function App() {
         <Route
           path="/result/:id"
           element={<ProtectedRoute><Result /></ProtectedRoute>}
+        />
+        <Route
+          path="/submission/:id"
+          element={<ProtectedRoute><SubmissionDetails /></ProtectedRoute>}
         />
         <Route
           path="/admin"

@@ -15,6 +15,7 @@ const QuizAttempt = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [timeLeft, setTimeLeft] = useState(null);
 
   useEffect(() => {
     const fetchQuiz = async () => {
@@ -22,6 +23,9 @@ const QuizAttempt = () => {
         const res = await API.get(`/quizzes/${id}`);
         setQuiz(res.data.quiz);
         setQuestions(res.data.questions);
+        if (res.data.quiz.time_limit) {
+          setTimeLeft(res.data.quiz.time_limit * 60);
+        }
       } catch (err) {
         if (err.response?.status === 409) {
           setError('You have already submitted this quiz.');
@@ -34,6 +38,27 @@ const QuizAttempt = () => {
     };
     fetchQuiz();
   }, [id]);
+
+  useEffect(() => {
+    if (timeLeft === null || submitting) return;
+    
+    if (timeLeft <= 0) {
+      handleSubmit(); // auto submit
+      return;
+    }
+    
+    const timer = setInterval(() => {
+      setTimeLeft(prev => prev - 1);
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [timeLeft, submitting]);
+
+  const formatTime = (seconds) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
 
   const handleAnswer = (questionId, option) => {
     setAnswers((prev) => ({ ...prev, [questionId]: option }));
@@ -88,8 +113,15 @@ const QuizAttempt = () => {
             <h1>{quiz?.title}</h1>
             <p>{answeredCount} of {questions.length} answered</p>
           </div>
-          <div className="progress-ring">
-            <span>{Math.round(progress)}%</span>
+          <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+            {timeLeft !== null && (
+              <div className={`timer ${timeLeft < 60 ? 'timer-warning' : ''}`} style={{ fontWeight: 'bold', fontSize: '1.2rem', color: timeLeft < 60 ? 'var(--danger)' : 'inherit' }}>
+                ⏱ {formatTime(timeLeft)}
+              </div>
+            )}
+            <div className="progress-ring">
+              <span>{Math.round(progress)}%</span>
+            </div>
           </div>
         </div>
 

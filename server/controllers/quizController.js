@@ -3,7 +3,7 @@ const db = require('../config/db');
 // Get all quizzes
 exports.getAllQuizzes = (req, res) => {
   const query = `
-    SELECT q.id, q.title, q.description, q.created_by, u.name as created_by_name,
+    SELECT q.id, q.title, q.description, q.time_limit, q.created_by, u.name as created_by_name,
            COUNT(qn.id) as question_count
     FROM quizzes q
     LEFT JOIN users u ON q.created_by = u.id
@@ -41,7 +41,7 @@ exports.getQuizWithQuestions = (req, res) => {
       }
 
       // Get quiz
-      db.query('SELECT id, title, description FROM quizzes WHERE id = ?', [id], (err, quizzes) => {
+      db.query('SELECT id, title, description, time_limit FROM quizzes WHERE id = ?', [id], (err, quizzes) => {
         if (err) {
           console.error('Get quiz error:', err);
           return res.status(500).json({ message: 'Failed to fetch quiz', error: err.message });
@@ -163,7 +163,7 @@ exports.submitQuiz = (req, res) => {
 
 // Create quiz (admin only)
 exports.createQuiz = (req, res) => {
-  const { title, description } = req.body;
+  const { title, description, time_limit } = req.body;
   const adminId = req.user.id;
 
   if (!title) {
@@ -171,8 +171,8 @@ exports.createQuiz = (req, res) => {
   }
 
   db.query(
-    'INSERT INTO quizzes (title, description, created_by) VALUES (?, ?, ?)',
-    [title, description || null, adminId],
+    'INSERT INTO quizzes (title, description, time_limit, created_by) VALUES (?, ?, ?, ?)',
+    [title, description || null, time_limit || null, adminId],
     (err, result) => {
       if (err) {
         console.error('Create quiz error:', err);
@@ -250,6 +250,7 @@ exports.getUserSubmissions = (req, res) => {
 exports.getAllResults = (req, res) => {
   const query = `
     SELECT 
+      s.id AS submission_id,
       u.name,
       u.email,
       q.title AS quiz_title,
@@ -271,3 +272,198 @@ exports.getAllResults = (req, res) => {
     res.json(results);
   });
 };
+
+// Delete quiz (admin only)
+exports.deleteQuiz = (req, res) => {
+  const { id } = req.params;
+
+  db.query('SELECT created_by FROM quizzes WHERE id = ?', [id], (err, quizzes) => {
+    if (err) {
+      console.error('Get quiz error:', err);
+      return res.status(500).json({ message: 'Database error', error: err.message });
+    }
+
+    if (!quizzes || quizzes.length === 0) {
+      return res.status(404).json({ message: 'Quiz not found' });
+    }
+
+    if (quizzes[0].created_by !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to delete this quiz' });
+    }
+
+    db.query('DELETE FROM quizzes WHERE id = ?', [id], (err) => {
+      if (err) {
+        console.error('Delete quiz error:', err);
+        return res.status(500).json({ message: 'Failed to delete quiz', error: err.message });
+      }
+
+      res.json({ message: 'Quiz deleted successfully' });
+    });
+  });
+};
+
+// Delete question (admin only)
+exports.deleteQuestion = (req, res) => {
+  const { id } = req.params;
+
+  db.query(
+    'SELECT q.created_by FROM questions qn JOIN quizzes q ON qn.quiz_id = q.id WHERE qn.id = ?',
+    [id],
+    (err, results) => {
+      if (err) {
+        console.error('Get question error:', err);
+        return res.status(500).json({ message: 'Database error', error: err.message });
+      }
+
+      if (!results || results.length === 0) {
+        return res.status(404).json({ message: 'Question not found' });
+      }
+
+      if (results[0].created_by !== req.user.id) {
+        return res.status(403).json({ message: 'Not authorized to delete this question' });
+      }
+
+      db.query('DELETE FROM questions WHERE id = ?', [id], (err) => {
+        if (err) {
+          console.error('Delete question error:', err);
+          return res.status(500).json({ message: 'Failed to delete question', error: err.message });
+        }
+
+        res.json({ message: 'Question deleted successfully' });
+      });
+    }
+  );
+};
+
+// Update question (admin only)
+exports.updateQuestion = (req, res) => {
+  const { id } = req.params;
+  const { question_text, option_a, option_b, option_c, option_d, correct_answer } = req.body;
+
+  if (!question_text || !option_a || !option_b || !option_c || !option_d || !correct_answer) {
+    return res.status(400).json({ message: 'All fields are required' });
+  }
+
+  db.query(
+    'SELECT q.created_by FROM questions qn JOIN quizzes q ON qn.quiz_id = q.id WHERE qn.id = ?',
+    [id],
+    (err, results) => {
+      if (err) {
+        console.error('Get question error:', err);
+        return res.status(500).json({ message: 'Database error', error: err.message });
+      }
+
+      if (!results || results.length === 0) {
+        return res.status(404).json({ message: 'Question not found' });
+      }
+
+      if (results[0].created_by !== req.user.id) {
+        return res.status(403).json({ message: 'Not authorized to edit this question' });
+      }
+
+      db.query(
+        'UPDATE questions SET question_text = ?, option_a = ?, option_b = ?, option_c = ?, option_d = ?, correct_answer = ? WHERE id = ?',
+        [question_text, option_a, option_b, option_c, option_d, correct_answer, id],
+        (err) => {
+          if (err) {
+            console.error('Update question error:', err);
+            return res.status(500).json({ message: 'Failed to update question', error: err.message });
+          }
+
+          res.json({ message: 'Question updated successfully' });
+        }
+      );
+    }
+  );
+};
+
+// Get quiz with full questions (admin only)
+exports.getQuizAdmin = (req, res) => {
+  const { id } = req.params;
+
+  db.query('SELECT id, title, description, time_limit, created_by FROM quizzes WHERE id = ?', [id], (err, quizzes) => {
+    if (err) {
+      console.error('Get quiz error:', err);
+      return res.status(500).json({ message: 'Failed to fetch quiz', error: err.message });
+    }
+
+    if (!quizzes || quizzes.length === 0) {
+      return res.status(404).json({ message: 'Quiz not found' });
+    }
+
+    if (quizzes[0].created_by !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    db.query(
+      'SELECT id, question_text, option_a, option_b, option_c, option_d, correct_answer FROM questions WHERE quiz_id = ? ORDER BY id',
+      [id],
+      (err, questions) => {
+        if (err) {
+          console.error('Get questions error:', err);
+          return res.status(500).json({ message: 'Failed to fetch questions', error: err.message });
+        }
+
+        res.json({
+          quiz: quizzes[0],
+          questions: questions || [],
+        });
+      }
+    );
+  });
+};
+
+// Get detailed submission info (for student review)
+exports.getSubmissionDetails = (req, res) => {
+  const { id } = req.params; // submission id
+  const userId = req.user.id;
+
+  // 1. Get submission
+  db.query(
+    'SELECT s.id, s.quiz_id, s.score, s.total_questions, s.submitted_at, q.title, q.description FROM submissions s JOIN quizzes q ON s.quiz_id = q.id WHERE s.id = ?',
+    [id],
+    (err, submissions) => {
+      if (err) return res.status(500).json({ message: 'Database error', error: err.message });
+      if (!submissions || submissions.length === 0) return res.status(404).json({ message: 'Submission not found' });
+      
+      const submission = submissions[0];
+
+      // Security check: only the user who took it (or admin) can view
+      // We will just do a simple check. If req.user.role === 'admin' they can view, else must match user_id
+      // For now, let's also fetch user_id from submission and check
+      db.query('SELECT user_id FROM submissions WHERE id = ?', [id], (err, subUserId) => {
+        if (err) return res.status(500).json({ message: 'Database error' });
+        if (subUserId[0].user_id !== userId && req.user.role !== 'admin') {
+           return res.status(403).json({ message: 'Not authorized to view this submission' });
+        }
+
+        // 2. Get questions and answers
+        db.query(
+          `SELECT q.id, q.question_text, q.option_a, q.option_b, q.option_c, q.option_d, q.correct_answer,
+                  a.user_answer, a.is_correct
+           FROM questions q
+           LEFT JOIN answers a ON q.id = a.question_id AND a.submission_id = ?
+           WHERE q.quiz_id = ?
+           ORDER BY q.id`,
+          [id, submission.quiz_id],
+          (err, questionsAndAnswers) => {
+             if (err) return res.status(500).json({ message: 'Failed to fetch details' });
+
+             res.json({
+               submission: {
+                 id: submission.id,
+                 quiz_id: submission.quiz_id,
+                 score: submission.score,
+                 total_questions: submission.total_questions,
+                 submitted_at: submission.submitted_at,
+                 quiz_title: submission.title,
+                 quiz_description: submission.description
+               },
+               answers: questionsAndAnswers || []
+             });
+          }
+        );
+      });
+    }
+  );
+};

@@ -60,13 +60,24 @@ function Result() {
             </div>
           </div>
 
-          <button 
-            onClick={() => navigate("/dashboard")}
-            className="btn btn-primary"
-            style={{ minWidth: "200px" }}
-          >
-            Go to Dashboard
-          </button>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            <button 
+              onClick={() => navigate("/dashboard")}
+              className="btn btn-secondary"
+              style={{ minWidth: "150px" }}
+            >
+              Go to Dashboard
+            </button>
+            {result.submissionId && (
+              <button 
+                onClick={() => navigate(`/submission/${result.submissionId}`)}
+                className="btn btn-primary"
+                style={{ minWidth: "150px" }}
+              >
+                Review Answers
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

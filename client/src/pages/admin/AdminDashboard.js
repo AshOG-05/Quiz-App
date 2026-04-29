@@ -23,6 +23,17 @@ function AdminDashboard() {
     fetchQuizzes();
   }, []);
 
+  const handleDeleteQuiz = async (quizId) => {
+    if (window.confirm("Are you sure you want to delete this quiz? All associated questions and submissions will also be deleted.")) {
+      try {
+        await API.delete(`/quizzes/${quizId}`);
+        setQuizzes(quizzes.filter(q => q.id !== quizId));
+      } catch (err) {
+        alert(err.response?.data?.message || "Failed to delete quiz");
+      }
+    }
+  };
+
   return (
     <div className="page">
       <Navbar />
@@ -93,6 +104,13 @@ function AdminDashboard() {
                         >
                           Results
                         </Link>
+                        <button
+                          onClick={() => handleDeleteQuiz(quiz.id)}
+                          className="btn btn-small btn-danger"
+                          style={{ background: "#dc3545", color: "#fff", border: "none" }}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>

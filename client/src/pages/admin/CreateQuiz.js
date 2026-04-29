@@ -6,6 +6,7 @@ import Navbar from "../../components/Navbar";
 function CreateQuiz() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [timeLimit, setTimeLimit] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -21,10 +22,14 @@ function CreateQuiz() {
     setLoading(true);
     setError("");
     try {
-      const res = await API.post("/quizzes", { title, description });
+      const payload = { title, description };
+      if (timeLimit) payload.time_limit = parseInt(timeLimit);
+      
+      const res = await API.post("/quizzes", payload);
       setSuccess("Quiz created successfully!");
       setTitle("");
       setDescription("");
+      setTimeLimit("");
       
       setTimeout(() => {
         navigate("/admin");
@@ -74,6 +79,20 @@ function CreateQuiz() {
                   setDescription(e.target.value);
                   setError("");
                 }}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Time Limit (Minutes)</label>
+              <input
+                type="number"
+                placeholder="e.g., 30 (Leave blank for no limit)"
+                value={timeLimit}
+                onChange={(e) => {
+                  setTimeLimit(e.target.value);
+                  setError("");
+                }}
+                min="1"
               />
             </div>
 
