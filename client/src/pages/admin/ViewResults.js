@@ -24,13 +24,50 @@ function ViewResults() {
     fetchResults();
   }, []);
 
+  const handleDownloadCSV = () => {
+    if (results.length === 0) return;
+    
+    // Create CSV header
+    const headers = ["Name", "Email", "Quiz", "Score", "Total Questions", "Percentage", "Submitted At"];
+    
+    // Create CSV rows
+    const rows = results.map(r => {
+      const pct = Math.round((r.score / r.total_questions) * 100);
+      return [
+        `"${r.name}"`,
+        `"${r.email}"`,
+        `"${r.quiz_title}"`,
+        r.score,
+        r.total_questions,
+        `${pct}%`,
+        `"${new Date(r.submitted_at).toLocaleString()}"`
+      ].join(",");
+    });
+    
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `student_results_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="page">
       <Navbar />
       <div className="page-content">
-        <div className="admin-header">
-          <h1>Student Results</h1>
-          <p>All quiz submissions from students</p>
+        <div className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h1>Student Results</h1>
+            <p>All quiz submissions from students</p>
+          </div>
+          {results.length > 0 && (
+            <button className="btn btn-success" onClick={handleDownloadCSV}>
+              📥 Download CSV
+            </button>
+          )}
         </div>
 
         {loading && (

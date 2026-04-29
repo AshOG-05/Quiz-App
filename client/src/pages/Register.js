@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import API from '../api/api';
 
 const Register = () => {
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'student' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'student', branch: '', section: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -83,9 +83,34 @@ const Register = () => {
             <label>Register as</label>
             <select name="role" value={form.role} onChange={handleChange}>
               <option value="student">Student</option>
-              <option value="admin">Admin</option>
+              <option value="admin">Teacher / Admin</option>
             </select>
           </div>
+
+          {form.role === 'student' && (
+            <>
+              <div className="form-group">
+                <label>Branch / Course</label>
+                <input
+                  type="text"
+                  name="branch"
+                  value={form.branch}
+                  onChange={handleChange}
+                  placeholder="e.g. Computer Science, Mechanical"
+                />
+              </div>
+              <div className="form-group">
+                <label>Section</label>
+                <input
+                  type="text"
+                  name="section"
+                  value={form.section}
+                  onChange={handleChange}
+                  placeholder="e.g. A, B, C"
+                />
+              </div>
+            </>
+          )}
 
           <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
             {loading ? <span className="spinner-sm" /> : 'Create Account'}

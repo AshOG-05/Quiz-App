@@ -3,10 +3,17 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import API from '../api/api';
 import Navbar from '../components/Navbar';
+import { useAuth } from '../context/AuthContext';
 
 const QuizAttempt = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  
+  const searchParams = new URLSearchParams(window.location.search);
+  const passcode = searchParams.get('passcode') || '';
+
+  const getStorageKey = () => `quiz_draft_${id}_${user?.id || 'guest'}`;
 
   const [quiz, setQuiz] = useState(null);
   const [questions, setQuestions] = useState([]);
@@ -20,10 +27,26 @@ const QuizAttempt = () => {
   useEffect(() => {
     const fetchQuiz = async () => {
       try {
-        const res = await API.get(`/quizzes/${id}`);
+        const url = passcode ? `/quizzes/${id}?passcode=${encodeURIComponent(passcode)}` : `/quizzes/${id}`;
+        const res = await API.get(url);
         setQuiz(res.data.quiz);
-        setQuestions(res.data.questions);
-        if (res.data.quiz.time_limit) {
+        
+        // Randomize questions order
+        const shuffledQuestions = [...res.data.questions].sort(() => Math.random() - 0.5);
+        setQuestions(shuffledQuestions);
+
+        // Load saved state from localStorage
+        const savedStateStr = localStorage.getItem(getStorageKey());
+        if (savedStateStr) {
+          const savedState = JSON.parse(savedStateStr);
+          setAnswers(savedState.answers || {});
+          setCurrentIndex(savedState.currentIndex || 0);
+          if (savedState.timeLeft !== undefined && savedState.timeLeft !== null) {
+            setTimeLeft(savedState.timeLeft);
+          } else if (res.data.quiz.time_limit) {
+            setTimeLeft(res.data.quiz.time_limit * 60);
+          }
+        } else if (res.data.quiz.time_limit) {
           setTimeLeft(res.data.quiz.time_limit * 60);
         }
       } catch (err) {
@@ -37,7 +60,19 @@ const QuizAttempt = () => {
       }
     };
     fetchQuiz();
-  }, [id]);
+  }, [id, user]);
+
+  // Save to localStorage when state changes
+  useEffect(() => {
+    if (!loading && quiz) {
+      const stateToSave = {
+        answers,
+        currentIndex,
+        timeLeft
+      };
+      localStorage.setItem(getStorageKey(), JSON.stringify(stateToSave));
+    }
+  }, [answers, currentIndex, timeLeft, loading, quiz]);
 
   useEffect(() => {
     if (timeLeft === null || submitting) return;
@@ -53,6 +88,26 @@ const QuizAttempt = () => {
     
     return () => clearInterval(timer);
   }, [timeLeft, submitting]);
+
+  // Anti-cheating: Tab switching detection
+  useEffect(() => {
+    let warnings = 0;
+    
+    const handleVisibilityChange = () => {
+      if (document.hidden && !submitting && questions.length > 0) {
+        warnings++;
+        if (warnings >= 3) {
+           alert("Anti-Cheating System: You have switched tabs too many times. Your quiz is being automatically submitted.");
+           handleSubmit();
+        } else {
+           alert(`Warning ${warnings} of 3: Please stay on this tab while taking the quiz. Switching tabs is considered suspicious behavior.`);
+        }
+      }
+    };
+    
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [submitting, questions.length, answers]); // Depend on answers so handleSubmit has the latest state
 
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);
@@ -76,10 +131,13 @@ const QuizAttempt = () => {
     setSubmitting(true);
     try {
       const res = await API.post(`/quizzes/${id}/submit`, { answers });
+      // Clear auto-save draft
+      localStorage.removeItem(getStorageKey());
       navigate(`/result/${id}`, { state: res.data });
     } catch (err) {
       if (err.response?.status === 409) {
         setError('You have already submitted this quiz.');
+        localStorage.removeItem(getStorageKey());
       } else {
         setError(err.response?.data?.message || 'Submission failed. Please try again.');
       }

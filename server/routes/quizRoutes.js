@@ -4,8 +4,8 @@ const router = express.Router();
 const quizController = require('../controllers/quizController');
 const authMiddleware = require('../middleware/authMiddleware');
 
-// Public routes
-router.get('/', quizController.getAllQuizzes);
+// Protected routes
+router.get('/', authMiddleware, quizController.getAllQuizzes);
 
 // ⚠️ IMPORTANT: Named/specific routes MUST come before /:id wildcard
 // otherwise Express will match "results" and "user" as an :id param
@@ -22,6 +22,7 @@ router.post('/:id/questions', authMiddleware, quizController.addQuestion);
 router.post('/', authMiddleware, quizController.createQuiz);
 router.get('/:id/admin', authMiddleware, quizController.getQuizAdmin);
 router.delete('/:id', authMiddleware, quizController.deleteQuiz);
+router.patch('/:id/status', authMiddleware, quizController.toggleQuizStatus);
 router.delete('/questions/:id', authMiddleware, quizController.deleteQuestion);
 router.put('/questions/:id', authMiddleware, quizController.updateQuestion);
 

@@ -79,13 +79,59 @@ const Dashboard = () => {
                 </div>
                 <h3>{quiz.title}</h3>
                 <p className="quiz-description">{quiz.description || 'No description provided.'}</p>
-                <div className="quiz-meta" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div className="quiz-meta" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
                   <span>👤 {quiz.created_by_name || 'Admin'}</span>
                   {quiz.time_limit && <span>⏱ {quiz.time_limit} mins</span>}
+                  {quiz.requires_passcode && <span title="Requires Passcode">🔑</span>}
                 </div>
-                <Link to={`/quiz/${quiz.id}`} className="btn btn-primary btn-full">
-                  Start Quiz →
-                </Link>
+                
+                {(() => {
+                  if (!quiz.is_active) {
+                    return (
+                      <button className="btn btn-full" disabled style={{ background: '#e9ecef', color: '#6c757d', border: 'none' }}>
+                        Closed
+                      </button>
+                    );
+                  }
+                  
+                  const now = new Date();
+                  if (quiz.start_time && new Date(quiz.start_time) > now) {
+                    return (
+                      <button className="btn btn-full" disabled style={{ background: '#fff3cd', color: '#856404', border: 'none' }}>
+                        Upcoming ({new Date(quiz.start_time).toLocaleString()})
+                      </button>
+                    );
+                  }
+                  
+                  if (quiz.end_time && new Date(quiz.end_time) < now) {
+                    return (
+                      <button className="btn btn-full" disabled style={{ background: '#f8d7da', color: '#721c24', border: 'none' }}>
+                        Ended ({new Date(quiz.end_time).toLocaleString()})
+                      </button>
+                    );
+                  }
+
+                  return (
+                    <button 
+                      className="btn btn-primary btn-full"
+                      onClick={() => {
+                        if (quiz.requires_passcode) {
+                          const code = window.prompt("This quiz requires a passcode. Please enter it:");
+                          if (code === null) return; // User cancelled
+                          if (code.trim() === '') {
+                             alert("Passcode is required.");
+                             return;
+                          }
+                          window.location.href = `/quiz/${quiz.id}?passcode=${encodeURIComponent(code)}`;
+                        } else {
+                          window.location.href = `/quiz/${quiz.id}`;
+                        }
+                      }}
+                    >
+                      Start Quiz →
+                    </button>
+                  );
+                })()}
               </div>
             ))}
           </div>

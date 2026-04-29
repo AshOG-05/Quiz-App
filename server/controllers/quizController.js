@@ -2,22 +2,41 @@ const db = require('../config/db');
 
 // Get all quizzes
 exports.getAllQuizzes = (req, res) => {
-  const query = `
-    SELECT q.id, q.title, q.description, q.time_limit, q.created_by, u.name as created_by_name,
-           COUNT(qn.id) as question_count
-    FROM quizzes q
-    LEFT JOIN users u ON q.created_by = u.id
-    LEFT JOIN questions qn ON q.id = qn.quiz_id
-    GROUP BY q.id
-    ORDER BY q.created_at DESC
-  `;
+  const userId = req.user.id;
 
-  db.query(query, (err, quizzes) => {
-    if (err) {
-      console.error('Get quizzes error:', err);
-      return res.status(500).json({ message: 'Failed to fetch quizzes', error: err.message });
+  db.query('SELECT role, branch, section FROM users WHERE id = ?', [userId], (err, users) => {
+    if (err) return res.status(500).json({ message: 'Database error', error: err.message });
+    if (!users || users.length === 0) return res.status(404).json({ message: 'User not found' });
+    
+    const user = users[0];
+
+    let query = `
+      SELECT q.id, q.title, q.description, q.time_limit, q.target_branch, q.target_section, q.created_by, u.name as created_by_name,
+             q.is_active, q.start_time, q.end_time,
+             IF(q.passcode IS NOT NULL AND q.passcode != '', true, false) as requires_passcode,
+             COUNT(qn.id) as question_count
+      FROM quizzes q
+      LEFT JOIN users u ON q.created_by = u.id
+      LEFT JOIN questions qn ON q.id = qn.quiz_id
+    `;
+
+    const queryParams = [];
+
+    if (user.role !== 'admin') {
+      query += ` WHERE (q.target_branch IS NULL OR q.target_branch = '' OR FIND_IN_SET(?, q.target_branch) > 0)
+                 AND (q.target_section IS NULL OR q.target_section = '' OR FIND_IN_SET(?, q.target_section) > 0)`;
+      queryParams.push(user.branch || '', user.section || '');
     }
-    res.json(quizzes);
+
+    query += ` GROUP BY q.id ORDER BY q.created_at DESC`;
+
+    db.query(query, queryParams, (err, quizzes) => {
+      if (err) {
+        console.error('Get quizzes error:', err);
+        return res.status(500).json({ message: 'Failed to fetch quizzes', error: err.message });
+      }
+      res.json(quizzes);
+    });
   });
 };
 
@@ -41,7 +60,7 @@ exports.getQuizWithQuestions = (req, res) => {
       }
 
       // Get quiz
-      db.query('SELECT id, title, description, time_limit FROM quizzes WHERE id = ?', [id], (err, quizzes) => {
+      db.query('SELECT id, title, description, time_limit, is_active, passcode, start_time, end_time FROM quizzes WHERE id = ?', [id], (err, quizzes) => {
         if (err) {
           console.error('Get quiz error:', err);
           return res.status(500).json({ message: 'Failed to fetch quiz', error: err.message });
@@ -49,6 +68,26 @@ exports.getQuizWithQuestions = (req, res) => {
 
         if (!quizzes || quizzes.length === 0) {
           return res.status(404).json({ message: 'Quiz not found' });
+        }
+        
+        const quiz = quizzes[0];
+        
+        if (req.user.role !== 'admin') {
+           if (!quiz.is_active) {
+             return res.status(403).json({ message: 'This quiz is no longer accepting submissions.' });
+           }
+           
+           const now = new Date();
+           if (quiz.start_time && new Date(quiz.start_time) > now) {
+             return res.status(403).json({ message: 'This quiz has not started yet.' });
+           }
+           if (quiz.end_time && new Date(quiz.end_time) < now) {
+             return res.status(403).json({ message: 'This quiz has ended.' });
+           }
+           
+           if (quiz.passcode && req.query.passcode !== quiz.passcode) {
+              return res.status(403).json({ message: 'Invalid or missing passcode' });
+           }
         }
 
         // Get questions (without correct answers)
@@ -62,7 +101,7 @@ exports.getQuizWithQuestions = (req, res) => {
             }
 
             res.json({
-              quiz: quizzes[0],
+              quiz: { id: quiz.id, title: quiz.title, description: quiz.description, time_limit: quiz.time_limit },
               questions: questions || [],
             });
           }
@@ -92,19 +131,30 @@ exports.submitQuiz = (req, res) => {
         return res.status(409).json({ message: 'You have already submitted this quiz' });
       }
 
-      // Get all questions for the quiz
+      // Get quiz status and questions
       db.query(
-        'SELECT id, correct_answer FROM questions WHERE quiz_id = ?',
+        'SELECT q.is_active, q.passcode, qn.id, qn.correct_answer FROM quizzes q LEFT JOIN questions qn ON q.id = qn.quiz_id WHERE q.id = ?',
         [id],
-        (err, questions) => {
+        (err, results) => {
           if (err) {
             console.error('Get questions error:', err);
             return res.status(500).json({ message: 'Failed to fetch questions', error: err.message });
           }
 
-          if (!questions || questions.length === 0) {
-            return res.status(404).json({ message: 'Quiz not found' });
+          if (!results || results.length === 0 || !results[0].id) {
+            return res.status(404).json({ message: 'Quiz not found or has no questions' });
           }
+          
+          const quiz = results[0];
+          
+          if (!quiz.is_active) {
+            return res.status(403).json({ message: 'This quiz is no longer accepting submissions.' });
+          }
+          
+          // Note: we're not strictly checking passcode on submit to allow users who already started to finish
+          // But we could check req.query.passcode if we wanted to be strict.
+
+          const questions = results;
 
           // Calculate score
           let score = 0;
@@ -163,16 +213,24 @@ exports.submitQuiz = (req, res) => {
 
 // Create quiz (admin only)
 exports.createQuiz = (req, res) => {
-  const { title, description, time_limit } = req.body;
+  let { title, description, time_limit, target_branch, target_section, passcode, start_time, end_time } = req.body;
   const adminId = req.user.id;
 
   if (!title) {
     return res.status(400).json({ message: 'Quiz title is required' });
   }
 
+  // Clean up comma-separated lists for FIND_IN_SET support
+  if (target_branch) {
+    target_branch = target_branch.split(',').map(b => b.trim()).filter(b => b).join(',');
+  }
+  if (target_section) {
+    target_section = target_section.split(',').map(s => s.trim()).filter(s => s).join(',');
+  }
+
   db.query(
-    'INSERT INTO quizzes (title, description, time_limit, created_by) VALUES (?, ?, ?, ?)',
-    [title, description || null, time_limit || null, adminId],
+    'INSERT INTO quizzes (title, description, time_limit, target_branch, target_section, passcode, start_time, end_time, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [title, description || null, time_limit || null, target_branch || null, target_section || null, passcode || null, start_time || null, end_time || null, adminId],
     (err, result) => {
       if (err) {
         console.error('Create quiz error:', err);
@@ -298,6 +356,27 @@ exports.deleteQuiz = (req, res) => {
       }
 
       res.json({ message: 'Quiz deleted successfully' });
+    });
+  });
+};
+
+// Toggle quiz status (admin only)
+exports.toggleQuizStatus = (req, res) => {
+  const { id } = req.params;
+
+  db.query('SELECT created_by, is_active FROM quizzes WHERE id = ?', [id], (err, quizzes) => {
+    if (err) return res.status(500).json({ message: 'Database error', error: err.message });
+    if (!quizzes || quizzes.length === 0) return res.status(404).json({ message: 'Quiz not found' });
+    
+    if (quizzes[0].created_by !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const newStatus = !quizzes[0].is_active;
+
+    db.query('UPDATE quizzes SET is_active = ? WHERE id = ?', [newStatus, id], (err) => {
+      if (err) return res.status(500).json({ message: 'Failed to update quiz status', error: err.message });
+      res.json({ message: 'Quiz status updated successfully', is_active: newStatus });
     });
   });
 };

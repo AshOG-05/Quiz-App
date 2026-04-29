@@ -34,6 +34,18 @@ function AdminDashboard() {
     }
   };
 
+  const handleToggleStatus = async (quiz) => {
+    const action = quiz.is_active ? "close" : "open";
+    if (window.confirm(`Are you sure you want to ${action} this quiz?`)) {
+      try {
+        const res = await API.patch(`/quizzes/${quiz.id}/status`);
+        setQuizzes(quizzes.map(q => q.id === quiz.id ? { ...q, is_active: res.data.is_active } : q));
+      } catch (err) {
+        alert(err.response?.data?.message || `Failed to ${action} quiz`);
+      }
+    }
+  };
+
   return (
     <div className="page">
       <Navbar />
@@ -79,6 +91,7 @@ function AdminDashboard() {
                 <tr>
                   <th>Title</th>
                   <th>Questions</th>
+                  <th>Status</th>
                   <th>Created By</th>
                   <th>Actions</th>
                 </tr>
@@ -86,8 +99,20 @@ function AdminDashboard() {
               <tbody>
                 {quizzes.map((quiz) => (
                   <tr key={quiz.id}>
-                    <td>{quiz.title}</td>
+                    <td>{quiz.title} {quiz.requires_passcode && "🔑"}</td>
                     <td>{quiz.question_count || 0}</td>
+                    <td>
+                      <span style={{ 
+                        padding: '4px 8px', 
+                        borderRadius: '4px', 
+                        fontSize: '0.8rem',
+                        fontWeight: 'bold',
+                        backgroundColor: quiz.is_active ? 'rgba(40, 167, 69, 0.1)' : 'rgba(220, 53, 69, 0.1)',
+                        color: quiz.is_active ? 'var(--success)' : 'var(--danger)'
+                      }}>
+                        {quiz.is_active ? 'Active' : 'Closed'}
+                      </span>
+                    </td>
                     <td>{quiz.created_by_name || "You"}</td>
                     <td>
                       <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
@@ -97,6 +122,17 @@ function AdminDashboard() {
                         >
                           Manage
                         </Link>
+                        <button
+                          onClick={() => handleToggleStatus(quiz)}
+                          className="btn btn-small"
+                          style={{ 
+                            background: quiz.is_active ? "#f0ad4e" : "#28a745", 
+                            color: "#fff", 
+                            border: "none" 
+                          }}
+                        >
+                          {quiz.is_active ? "Close" : "Open"}
+                        </button>
                         <Link
                           to="/admin/results"
                           className="btn btn-small"

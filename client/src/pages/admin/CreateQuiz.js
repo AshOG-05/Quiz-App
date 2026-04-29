@@ -7,6 +7,11 @@ function CreateQuiz() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [timeLimit, setTimeLimit] = useState("");
+  const [targetBranch, setTargetBranch] = useState("");
+  const [targetSection, setTargetSection] = useState("");
+  const [passcode, setPasscode] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,12 +29,22 @@ function CreateQuiz() {
     try {
       const payload = { title, description };
       if (timeLimit) payload.time_limit = parseInt(timeLimit);
+      if (targetBranch) payload.target_branch = targetBranch;
+      if (targetSection) payload.target_section = targetSection;
+      if (passcode) payload.passcode = passcode;
+      if (startTime) payload.start_time = startTime;
+      if (endTime) payload.end_time = endTime;
       
       const res = await API.post("/quizzes", payload);
       setSuccess("Quiz created successfully!");
       setTitle("");
       setDescription("");
       setTimeLimit("");
+      setTargetBranch("");
+      setTargetSection("");
+      setPasscode("");
+      setStartTime("");
+      setEndTime("");
       
       setTimeout(() => {
         navigate("/admin");
@@ -94,6 +109,70 @@ function CreateQuiz() {
                 }}
                 min="1"
               />
+            </div>
+
+            <div className="form-group">
+              <label>Target Branch / Course (Optional)</label>
+              <input
+                type="text"
+                placeholder="e.g., Computer Science, Mechanical (Leave blank for all)"
+                value={targetBranch}
+                onChange={(e) => {
+                  setTargetBranch(e.target.value);
+                  setError("");
+                }}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Target Section (Optional)</label>
+              <input
+                type="text"
+                placeholder="e.g., A, B (Leave blank for all)"
+                value={targetSection}
+                onChange={(e) => {
+                  setTargetSection(e.target.value);
+                  setError("");
+                }}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Quiz Passcode (Optional)</label>
+              <input
+                type="text"
+                placeholder="Set a passcode to restrict access"
+                value={passcode}
+                onChange={(e) => {
+                  setPasscode(e.target.value);
+                  setError("");
+                }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: "15px" }}>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>Start Time (Optional)</label>
+                <input
+                  type="datetime-local"
+                  value={startTime}
+                  onChange={(e) => {
+                    setStartTime(e.target.value);
+                    setError("");
+                  }}
+                />
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>End Time (Optional)</label>
+                <input
+                  type="datetime-local"
+                  value={endTime}
+                  onChange={(e) => {
+                    setEndTime(e.target.value);
+                    setError("");
+                  }}
+                />
+              </div>
             </div>
 
             <div style={{ display: "flex", gap: "10px" }}>

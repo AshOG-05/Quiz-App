@@ -5,7 +5,7 @@ const db = require('../config/db');
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 exports.register = (req, res) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password, role, branch, section } = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({ message: 'Name, email, and password are required' });
@@ -31,8 +31,8 @@ exports.register = (req, res) => {
 
       // Create user
       db.query(
-        'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
-        [name, email, hashedPassword, role || 'student'],
+        'INSERT INTO users (name, email, password, role, branch, section) VALUES (?, ?, ?, ?, ?, ?)',
+        [name, email, hashedPassword, role || 'student', branch || null, section || null],
         (err, result) => {
           if (err) {
             console.error('Register error:', err);
@@ -54,7 +54,7 @@ exports.login = (req, res) => {
   }
 
   // Find user
-  db.query('SELECT id, name, email, password, role FROM users WHERE email = ?', [email], (err, users) => {
+  db.query('SELECT id, name, email, password, role, branch, section FROM users WHERE email = ?', [email], (err, users) => {
     if (err) {
       console.error('Query error:', err);
       return res.status(500).json({ message: 'Login failed', error: err.message });
@@ -92,6 +92,8 @@ exports.login = (req, res) => {
           name: user.name,
           email: user.email,
           role: user.role,
+          branch: user.branch,
+          section: user.section,
         },
       });
     });
